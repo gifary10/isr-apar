@@ -870,6 +870,179 @@ textarea.form-control {
   animation: statusPulse 0.3s ease;
 }
 
+/* ── Dashboard Hero Card ── */
+.dash-hero {
+  background: linear-gradient(135deg, var(--navy-dark), var(--navy-light));
+  border-radius: var(--radius-lg);
+  padding: 20px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  position: relative;
+}
+
+.dash-hero::before {
+  content: '';
+  position: absolute;
+  top: -30px; right: -30px;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: rgba(251,82,1,.12);
+}
+
+.dash-hero-label {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.55);
+  margin-bottom: 4px;
+}
+
+.dash-hero-total {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+  text-shadow: 0 2px 12px rgba(0,0,0,.3);
+}
+
+.dash-hero-empty {
+  width: 90px; height: 90px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── Health Score Card ── */
+.dash-health-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+}
+
+/* ── Progress Track ── */
+.dash-progress-track {
+  height: 7px;
+  background: var(--surface-2);
+  border-radius: 99px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.dash-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width .6s cubic-bezier(.34,1.56,.64,1);
+}
+
+/* ── Mini Stat Cards ── */
+.dash-stat-mini {
+  border-radius: var(--radius);
+  padding: 14px 12px;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all .2s;
+  border: 1px solid transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dash-stat-mini:active { transform: scale(.96); }
+
+.dash-stat-mini i {
+  font-size: 1.3rem;
+  display: block;
+  margin-bottom: 4px;
+  opacity: .75;
+}
+
+.dash-stat-mini-val {
+  font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.dash-stat-mini-lbl {
+  font-size: .63rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-top: 3px;
+  opacity: .7;
+}
+
+.dash-stat-good {
+  background: rgba(16,185,129,.1);
+  border-color: rgba(16,185,129,.25);
+  color: var(--good);
+}
+.dash-stat-warning {
+  background: rgba(245,158,11,.1);
+  border-color: rgba(245,158,11,.25);
+  color: var(--warning);
+}
+.dash-stat-critical {
+  background: rgba(239,68,68,.1);
+  border-color: rgba(239,68,68,.25);
+  color: var(--critical);
+}
+.dash-stat-replace {
+  background: rgba(139,92,246,.1);
+  border-color: rgba(139,92,246,.25);
+  color: var(--replace);
+}
+
+/* ── Quick Action Buttons ── */
+.dash-qa-btn {
+  width: 100%;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  position: relative;
+  transition: all .2s;
+  color: var(--navy);
+  font-size: .78rem;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dash-qa-btn i { color: var(--orange); }
+
+.dash-qa-btn:hover {
+  border-color: var(--orange);
+  background: rgba(251,82,1,.04);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.dash-qa-btn:active { transform: scale(.96); }
+
+.dash-qa-badge {
+  position: absolute;
+  top: 8px; right: 8px;
+  background: var(--critical);
+  color: #fff;
+  font-size: .6rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 99px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
 /* ── Scrollbar (webkit) ── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

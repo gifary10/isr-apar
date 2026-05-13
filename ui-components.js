@@ -26,101 +26,256 @@ function renderDashboard() {
   if (!isDataLoaded) {
     return renderLoadingState('Memuat data dari Google Sheets...');
   }
-  
-  const activeApars = aparData.filter(a => a.operationalStatus === 'ACTIVE');
-  const total = activeApars.length;
-  const good = activeApars.filter(a => a.status === 'Good').length;
-  const warning = activeApars.filter(a => a.status === 'Warning').length;
-  const critical = activeApars.filter(a => a.status === 'Critical').length;
-  const replaceRequired = activeApars.filter(a => a.status === 'Replace Required').length;
-  
-  const backupCount = aparData.filter(a => a.operationalStatus === 'BACKUP').length;
+
+  // ── Data kalkulasi ────────────────────────────────────────
+  const activeApars      = aparData.filter(a => a.operationalStatus === 'ACTIVE');
+  const total            = activeApars.length;
+  const good             = activeApars.filter(a => a.status === 'Good').length;
+  const warning          = activeApars.filter(a => a.status === 'Warning').length;
+  const critical         = activeApars.filter(a => a.status === 'Critical').length;
+  const replaceRequired  = activeApars.filter(a => a.status === 'Replace Required').length;
+
+  const backupCount      = aparData.filter(a => a.operationalStatus === 'BACKUP').length;
   const maintenanceCount = aparData.filter(a => a.operationalStatus === 'MAINTENANCE').length;
-  const retiredCount = aparData.filter(a => a.operationalStatus === 'RETIRED').length;
-  
-  const inspected = inspectionThisMonth.filter(id => {
-    const apar = aparData.find(a => a.id === id);
-    return apar && apar.operationalStatus === 'ACTIVE';
+  const retiredCount     = aparData.filter(a => a.operationalStatus === 'RETIRED').length;
+
+  const inspected    = inspectionThisMonth.filter(id => {
+    const a = aparData.find(x => x.id === id);
+    return a && a.operationalStatus === 'ACTIVE';
   }).length;
   const notInspected = total - inspected;
-  
+  const inspPct      = total > 0 ? Math.round((inspected / total) * 100) : 0;
+
+  // ── Breakdown per jenis ───────────────────────────────────
+  const jenisCounts = {};
+  activeApars.forEach(a => {
+    jenisCounts[a.jenis] = (jenisCounts[a.jenis] || 0) + 1;
+  });
+
+  // ── Ekspirasi dalam 30 hari ───────────────────────────────
+  const today      = new Date(); today.setHours(0,0,0,0);
+  const expiringSoon = aparData.filter(a => {
+    if (a.operationalStatus === 'RETIRED') return false;
+    const d = parseExpRefill(a.expRefill);
+    if (isNaN(d.getTime())) return false;
+    d.setHours(0,0,0,0);
+    const diff = Math.ceil((d - today) / 86400000);
+    return diff >= 0 && diff <= REMINDER_CONFIG.warningDays;
+  });
+  const expiredNow = aparData.filter(a => {
+    if (a.operationalStatus === 'RETIRED') return false;
+    const d = parseExpRefill(a.expRefill);
+    if (isNaN(d.getTime())) return false;
+    d.setHours(0,0,0,0);
+    return Math.ceil((d - today) / 86400000) < 0;
+  });
+
+  // ── Donut SVG ─────────────────────────────────────────────
+  const donutSvg = total > 0 ? _renderDonutChart({ good, warning, critical, replaceRequired }, total) : '';
+
+  // ── Nama bulan ────────────────────────────────────────────
+  const bulan = ['Januari','Februari','Maret','April','Mei','Juni',
+                 'Juli','Agustus','September','Oktober','November','Desember'];
+  const nowDate  = new Date();
+  const bulanStr = `${bulan[nowDate.getMonth()]} ${nowDate.getFullYear()}`;
+
+  // ── Health score sederhana ────────────────────────────────
+  const healthScore = total > 0
+    ? Math.round(((good + warning * 0.5) / total) * 100)
+    : 0;
+  const healthColor = healthScore >= 75 ? 'var(--good)'
+                    : healthScore >= 50 ? 'var(--warning)'
+                    : 'var(--critical)';
+  const healthLabel = healthScore >= 75 ? 'Baik' : healthScore >= 50 ? 'Perlu Perhatian' : 'Kritis';
+
   return `
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <!-- Header baris -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
       <div>
         <h5 class="fw-bold text-navy mb-0">Dashboard</h5>
+        <div class="small text-muted">${bulanStr}</div>
       </div>
       <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="refreshDataFromSheets()">
-        <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
       </button>
     </div>
-    
-    <div class="row g-3 mb-4">
+
+    <!-- ── HERO CARD ── -->
+    <div class="dash-hero mb-3">
+      <div class="dash-hero-left">
+        <div class="dash-hero-label">Total APAR</div>
+        <div class="dash-hero-total">${aparData.length}</div>
+        <div class="d-flex flex-wrap gap-1 mt-2">
+          <span class="op-status-badge badge-active"><i class="bi bi-play-circle me-1"></i>Aktif ${total}</span>
+          ${backupCount  > 0 ? `<span class="op-status-badge badge-backup"><i class="bi bi-archive me-1"></i>${backupCount}</span>` : ''}
+          ${maintenanceCount > 0 ? `<span class="op-status-badge badge-maintenance"><i class="bi bi-tools me-1"></i>${maintenanceCount}</span>` : ''}
+          ${retiredCount > 0 ? `<span class="op-status-badge badge-retired"><i class="bi bi-x-circle me-1"></i>${retiredCount}</span>` : ''}
+        </div>
+      </div>
+      <div class="dash-hero-right">
+        ${donutSvg || `<div class="dash-hero-empty"><i class="bi bi-shield-check fs-3 text-white-50"></i></div>`}
+      </div>
+    </div>
+
+    <!-- ── HEALTH SCORE ── -->
+    <div class="dash-health-card mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="small fw-bold text-navy">
+          <i class="bi bi-heart-pulse me-1" style="color:${healthColor}"></i>Health Score
+        </span>
+        <span class="fw-bold" style="color:${healthColor}">${healthScore}% — ${healthLabel}</span>
+      </div>
+      <div class="dash-progress-track">
+        <div class="dash-progress-fill" style="width:${healthScore}%; background:${healthColor};"></div>
+      </div>
+    </div>
+
+    <!-- ── STAT GRID 4-kotak ── -->
+    <div class="row g-2 mb-3">
       <div class="col-6">
-        <div class="stat-card" style="background: linear-gradient(135deg, var(--navy), var(--navy-light));">
-          <div class="stat-label text-white-50">APAR Aktif</div>
-          <div class="stat-value text-white">${total}</div>
+        <div class="dash-stat-mini dash-stat-good" onclick="navigateTo('monitoring')">
+          <i class="bi bi-check-circle-fill"></i>
+          <div class="dash-stat-mini-val">${good}</div>
+          <div class="dash-stat-mini-lbl">Good</div>
         </div>
       </div>
       <div class="col-6">
-        <div class="stat-card">
-          <div class="stat-label">Good</div>
-          <div class="stat-value text-success">${good}</div>
+        <div class="dash-stat-mini dash-stat-warning" onclick="navigateTo('monitoring')">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <div class="dash-stat-mini-val">${warning}</div>
+          <div class="dash-stat-mini-lbl">Warning</div>
         </div>
       </div>
       <div class="col-6">
-        <div class="stat-card">
-          <div class="stat-label">Warning</div>
-          <div class="stat-value text-warning">${warning}</div>
+        <div class="dash-stat-mini dash-stat-critical" onclick="navigateTo('monitoring')">
+          <i class="bi bi-exclamation-octagon-fill"></i>
+          <div class="dash-stat-mini-val">${critical}</div>
+          <div class="dash-stat-mini-lbl">Critical</div>
         </div>
       </div>
       <div class="col-6">
-        <div class="stat-card">
-          <div class="stat-label">Critical</div>
-          <div class="stat-value text-danger">${critical}</div>
-        </div>
-      </div>
-      <div class="col-6">
-        <div class="stat-card">
-          <div class="stat-label">Replace Required</div>
-          <div class="stat-value text-secondary">${replaceRequired}</div>
-        </div>
-      </div>
-      <div class="col-6">
-        <div class="stat-card">
-          <div class="stat-label">Sudah Inspeksi</div>
-          <div class="stat-value text-primary">${inspected}</div>
-        </div>
-      </div>
-      <div class="col-6">
-        <div class="stat-card">
-          <div class="stat-label">Belum Inspeksi</div>
-          <div class="stat-value text-secondary">${notInspected}</div>
+        <div class="dash-stat-mini dash-stat-replace" onclick="navigateTo('reminder')">
+          <i class="bi bi-arrow-repeat"></i>
+          <div class="dash-stat-mini-val">${replaceRequired}</div>
+          <div class="dash-stat-mini-lbl">Replace</div>
         </div>
       </div>
     </div>
-    
-    ${backupCount > 0 || maintenanceCount > 0 || retiredCount > 0 ? `
-    <div class="mb-3">
-      <h6 class="fw-bold text-navy d-flex align-items-center gap-2">
-        <i class="bi bi-archive text-orange"></i>
-        Status Operasional Lainnya
-      </h6>
-      <div class="d-flex flex-wrap gap-2 mb-3">
-        ${backupCount > 0 ? `<span class="badge badge-backup"><i class="bi bi-archive me-1"></i>Backup: ${backupCount}</span>` : ''}
-        ${maintenanceCount > 0 ? `<span class="badge badge-maintenance"><i class="bi bi-tools me-1"></i>Maintenance: ${maintenanceCount}</span>` : ''}
-        ${retiredCount > 0 ? `<span class="badge badge-retired"><i class="bi bi-x-circle me-1"></i>Retired: ${retiredCount}</span>` : ''}
+
+    <!-- ── PROGRESS INSPEKSI BULANAN ── -->
+    <div class="list-card mb-3 p-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="fw-bold text-navy small">
+          <i class="bi bi-clipboard-check text-orange me-1"></i>Inspeksi Bulan Ini
+        </span>
+        <span class="small fw-bold ${inspPct === 100 ? 'text-success' : inspPct >= 50 ? 'text-warning' : 'text-danger'}">
+          ${inspected}/${total} (${inspPct}%)
+        </span>
+      </div>
+      <div class="dash-progress-track mb-2">
+        <div class="dash-progress-fill" style="width:${inspPct}%; background:${inspPct===100?'var(--good)':inspPct>=50?'var(--warning)':'var(--critical)'};"></div>
+      </div>
+      <div class="d-flex gap-3">
+        <div class="small text-success"><i class="bi bi-check-circle me-1"></i>${inspected} Sudah</div>
+        <div class="small text-danger"><i class="bi bi-x-circle me-1"></i>${notInspected} Belum</div>
+        ${inspPct < 100 && notInspected > 0 ? `
+        <button class="btn btn-sm btn-outline-primary rounded-pill ms-auto px-3 py-0" onclick="navigateTo('inspection')" style="font-size:.72rem;">
+          Mulai <i class="bi bi-chevron-right"></i>
+        </button>` : ''}
       </div>
     </div>
-    ` : ''}
-    
-    <div class="mb-3">
-      <h6 class="fw-bold text-navy d-flex align-items-center gap-2">
-        <i class="bi bi-exclamation-triangle text-orange"></i>
-        APAR Critical & Perlu Perhatian
-      </h6>
+
+    <!-- ── EKSPIRASI & REMINDER ── -->
+    ${(expiredNow.length > 0 || expiringSoon.length > 0) ? `
+    <div class="list-card mb-3 p-3" style="border-left:4px solid var(--critical);">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="fw-bold text-navy small">
+          <i class="bi bi-calendar-x text-danger me-1"></i>Perhatian Ekspirasi
+        </span>
+        <button class="btn btn-sm btn-outline-danger rounded-pill px-3 py-0" onclick="navigateTo('reminder')" style="font-size:.72rem;">
+          Lihat semua
+        </button>
+      </div>
+      ${expiredNow.length > 0 ? `
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="badge bg-danger rounded-pill">${expiredNow.length}</span>
+          <span class="small text-danger fw-bold">APAR sudah expired</span>
+        </div>` : ''}
+      ${expiringSoon.length > 0 ? `
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-warning rounded-pill">${expiringSoon.length}</span>
+          <span class="small text-warning fw-bold">Akan expired dalam ${REMINDER_CONFIG.warningDays} hari</span>
+        </div>` : ''}
+    </div>` : `
+    <div class="list-card mb-3 p-3" style="border-left:4px solid var(--good);">
+      <div class="small text-success fw-bold">
+        <i class="bi bi-calendar-check me-1"></i>Semua APAR belum ada yang expired dalam ${REMINDER_CONFIG.warningDays} hari ke depan
+      </div>
+    </div>`}
+
+    <!-- ── BREAKDOWN JENIS ── -->
+    ${Object.keys(jenisCounts).length > 0 ? `
+    <div class="list-card mb-3 p-3">
+      <div class="fw-bold text-navy small mb-2">
+        <i class="bi bi-fire text-orange me-1"></i>Komposisi Jenis APAR Aktif
+      </div>
+      ${Object.entries(jenisCounts).map(([jenis, count]) => {
+        const pct = total > 0 ? Math.round((count/total)*100) : 0;
+        const colors = { 'CO2': 'var(--navy)', 'Dry Powder': 'var(--warning)', 'Foam': 'var(--good)' };
+        const c = colors[jenis] || 'var(--orange)';
+        return `
+        <div class="mb-2">
+          <div class="d-flex justify-content-between mb-1">
+            <span class="small text-navy">${jenis}</span>
+            <span class="small text-muted">${count} unit (${pct}%)</span>
+          </div>
+          <div class="dash-progress-track">
+            <div class="dash-progress-fill" style="width:${pct}%;background:${c};"></div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
+    <!-- ── APAR CRITICAL ── -->
+    <div class="section-heading mt-1">
+      <i class="bi bi-exclamation-triangle text-orange"></i>
+      Perlu Tindakan Segera
     </div>
     ${renderCriticalAparList()}
-    
+
+    <!-- ── QUICK ACTIONS ── -->
+    <div class="section-heading mt-3">
+      <i class="bi bi-lightning-charge text-orange"></i>
+      Quick Actions
+    </div>
+    <div class="row g-2 mb-4">
+      <div class="col-6">
+        <button class="dash-qa-btn" onclick="navigateTo('inspection')">
+          <i class="bi bi-clipboard-check fs-4"></i>
+          <span>Mulai Inspeksi</span>
+        </button>
+      </div>
+      <div class="col-6">
+        <button class="dash-qa-btn" onclick="navigateTo('reminder')">
+          <i class="bi bi-bell fs-4"></i>
+          <span>Lihat Reminder</span>
+          ${(expiredNow.length + expiringSoon.length) > 0 ? `<span class="dash-qa-badge">${expiredNow.length + expiringSoon.length}</span>` : ''}
+        </button>
+      </div>
+      <div class="col-6">
+        <button class="dash-qa-btn" onclick="navigateTo('master')">
+          <i class="bi bi-plus-circle fs-4"></i>
+          <span>Tambah APAR</span>
+        </button>
+      </div>
+      <div class="col-6">
+        <button class="dash-qa-btn" onclick="navigateTo('monitoring')">
+          <i class="bi bi-graph-up fs-4"></i>
+          <span>Monitor Status</span>
+        </button>
+      </div>
+    </div>
+
     ${total === 0 ? renderEmptyState(
       'bi-shield-plus',
       'Belum ada APAR Aktif',
@@ -130,37 +285,86 @@ function renderDashboard() {
   `;
 }
 
+/** Donut chart SVG distribusi status */
+function _renderDonutChart({ good, warning, critical, replaceRequired }, total) {
+  const cx = 52, cy = 52, r = 38, stroke = 13;
+  const circ = 2 * Math.PI * r;
+
+  const segments = [
+    { val: good,            color: '#10b981' },
+    { val: warning,         color: '#f59e0b' },
+    { val: critical,        color: '#ef4444' },
+    { val: replaceRequired, color: '#8b5cf6' },
+  ];
+
+  let offset = 0;
+  // rotate so first segment starts at top
+  const startAngle = -90;
+
+  const paths = segments.map(seg => {
+    if (seg.val === 0) return '';
+    const pct  = seg.val / total;
+    const dash = pct * circ;
+    const gap  = circ - dash;
+    const rotate = startAngle + (offset / total) * 360;
+    offset += seg.val;
+    return `<circle
+      cx="${cx}" cy="${cy}" r="${r}"
+      fill="none"
+      stroke="${seg.color}"
+      stroke-width="${stroke}"
+      stroke-dasharray="${dash.toFixed(2)} ${gap.toFixed(2)}"
+      transform="rotate(${rotate} ${cx} ${cy})"
+      stroke-linecap="butt"
+    />`;
+  }).join('');
+
+  return `
+    <svg viewBox="0 0 104 104" width="90" height="90" style="filter:drop-shadow(0 4px 12px rgba(0,0,0,.25));">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="${stroke}"/>
+      ${paths}
+      <text x="${cx}" y="${cy - 6}" text-anchor="middle" fill="white" font-size="17" font-weight="800" font-family="Inter,sans-serif">${total}</text>
+      <text x="${cx}" y="${cy + 10}" text-anchor="middle" fill="rgba(255,255,255,.6)" font-size="7.5" font-weight="600" font-family="Inter,sans-serif" letter-spacing="1">AKTIF</text>
+    </svg>`;
+}
+
 function renderCriticalAparList() {
-  const criticalApars = aparData.filter(a => 
-    a.operationalStatus === 'ACTIVE' && 
+  const criticalApars = aparData.filter(a =>
+    a.operationalStatus === 'ACTIVE' &&
     (a.status === 'Critical' || a.status === 'Replace Required')
   );
-  
+
   if (criticalApars.length === 0) {
     return `
-      <div class="text-center py-4">
+      <div class="text-center py-3">
         <i class="bi bi-check-circle fs-3 text-success d-block mb-2"></i>
-        <p class="text-muted">✅ Tidak ada APAR critical pada APAR aktif.</p>
-      </div>
-    `;
+        <p class="text-muted small mb-0">Tidak ada APAR critical saat ini ✅</p>
+      </div>`;
   }
-  
-  return criticalApars.map(a => `
-    <div class="list-card" style="border-left: 4px solid var(--critical);">
-      <div class="d-flex justify-content-between align-items-center">
+
+  return criticalApars.map((a, i) => {
+    const expDate  = parseExpRefill(a.expRefill);
+    const today    = new Date(); today.setHours(0,0,0,0);
+    const diffDays = isNaN(expDate.getTime()) ? null : Math.ceil((expDate - today) / 86400000);
+    const expStr   = diffDays === null ? '' : diffDays < 0 ? `Expired ${Math.abs(diffDays)} hari lalu` : `Exp: ${a.expRefill}`;
+
+    return `
+    <div class="list-card" style="border-left:4px solid var(--${a.status==='Critical'?'critical':'replace'}); animation-delay:${i*0.04}s;">
+      <div class="d-flex justify-content-between align-items-start">
         <div>
           <strong class="text-navy">${a.id}</strong>
-          <div class="small text-muted mt-1">
-            <i class="bi bi-geo-alt me-1"></i>${a.lokasi}
-          </div>
+          <div class="small text-muted mt-1"><i class="bi bi-geo-alt me-1"></i>${a.lokasi}</div>
+          ${expStr ? `<div class="small text-danger mt-1"><i class="bi bi-calendar-x me-1"></i>${expStr}</div>` : ''}
         </div>
-        <span class="status-badge ${getStatusBadgeClass(a.status)}">
-          <i class="bi ${a.status === 'Critical' ? 'bi-exclamation-octagon' : 'bi-arrow-repeat'} me-1"></i>
-          ${a.status}
-        </span>
+        <div class="d-flex flex-column align-items-end gap-1">
+          <span class="status-badge ${getStatusBadgeClass(a.status)}">
+            <i class="bi ${a.status==='Critical'?'bi-exclamation-octagon':'bi-arrow-repeat'} me-1"></i>${a.status}
+          </span>
+          <span class="badge bg-light text-navy" style="font-size:.65rem;">${a.jenis} · ${a.kapasitas}</span>
+        </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderMaster() {
