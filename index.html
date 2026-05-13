@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000c1f">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>ISR APAR</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay">
+    <div class="app-logo-overlay">
+      <img src="logo.webp" alt="ISR APAR" onerror="this.style.display='none'">
+    </div>
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <p>Memuat data dari Google Sheets...</p>
+  </div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <button class="back-btn d-none" id="backBtn" onclick="goBack()">
+      <i class="bi bi-arrow-left"></i>
+    </button>
+    <img src="logo.webp" alt="Logo" class="header-logo" onerror="this.style.display='none'">
+    <span class="header-title" id="pageTitle">ISR APAR</span>
+  </header>
+
+  <!-- Main Content -->
+  <div id="app" class="main-content"></div>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav" id="bottomNav">
+    <div class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+      <i class="bi bi-grid-fill"></i>
+      <span>Dashboard</span>
+    </div>
+    <div class="nav-item" data-page="master" onclick="navigateTo('master')">
+      <i class="bi bi-database"></i>
+      <span>Master</span>
+    </div>
+    <div class="nav-item" data-page="inspection" onclick="navigateTo('inspection')">
+      <i class="bi bi-clipboard-check"></i>
+      <span>Inspeksi</span>
+    </div>
+    <div class="nav-item" data-page="monitoring" onclick="navigateTo('monitoring')">
+      <i class="bi bi-graph-up"></i>
+      <span>Monitor</span>
+    </div>
+    <div class="nav-item" data-page="reminder" onclick="navigateTo('reminder')">
+      <i class="bi bi-bell"></i>
+      <span>Reminder</span>
+    </div>
+  </nav>
+
+  <!-- Toast Container -->
+  <div class="toast-container position-fixed top-0 end-0 p-3"></div>
+
+  <!-- JavaScript Files -->
+  <script src="config.js"></script>
+  <script src="cache.js"></script>
+  <script src="navigation.js"></script>
+  <script src="ui-components.js"></script>
+  <script src="inspection.js"></script>
+  
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
