@@ -1,4 +1,3 @@
-// Data APAR (kosong saat inisialisasi, akan diisi dari Google Sheets)
 let aparData = [];
 let inspectionThisMonth = [];
 let inspectionDetails = {};
@@ -17,14 +16,184 @@ function generateId() {
   return `APAR-${String(maxNum + 1).padStart(3, '0')}`;
 }
 
-// ==================== GOOGLE SHEETS INTEGRATION ====================
-// Semua request menggunakan GET untuk menghindari CORS preflight.
-// Operasi tulis dikirim via query parameter ?action=...&data=...
+function getActiveApars() {
+  return aparData.filter(a => OPERATIONAL_STATUS[a.operationalStatus]?.inspectable !== false);
+}
+
+function getReminderApars() {
+  if (REMINDER_CONFIG.includeBackupInReminder) {
+    return aparData;
+  }
+  return aparData.filter(a => OPERATIONAL_STATUS[a.operationalStatus]?.inspectable !== false);
+}
+
+function calculateAutoStatus(apar, inspectionResult = null) {
+  if (apar.operationalStatus === 'RETIRED') {
+    return 'Retired';
+  }
+  
+  let status = 'Good';
+  let score = 0;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expDate = parseExpRefill(apar.expRefill);
+  
+  if (isNaN(expDate.getTime())) {
+    if (apar.operationalStatus === 'BACKUP') {
+      return 'Backup';
+    }
+    return status;
+  }
+  
+  expDate.setHours(0, 0, 0, 0);
+  const diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 0) {
+    status = 'Critical';
+    score += 50;
+  } else if (diffDays <= REMINDER_CONFIG.criticalDays) {
+    if (status === 'Good') status = 'Warning';
+    score += 25;
+  } else if (diffDays <= REMINDER_CONFIG.warningDays) {
+    if (status === 'Good') status = 'Warning';
+    score += 15;
+  }
+
+  if (OPERATIONAL_STATUS[apar.operationalStatus]?.inspectable !== false) {
+    const checklist = getChecklist(apar.jenis);
+    const inspData = inspectionResult || (inspectionDetails[apar.id] || {});
+    
+    let totalItems = checklist.length;
+    let tidakStandarCount = 0;
+    
+    checklist.forEach(item => {
+      if (inspData[item.id] === 'tidak_standar') {
+        tidakStandarCount++;
+      }
+    });
+    
+    if (totalItems > 0) {
+      const tidakStandarPercentage = (tidakStandarCount / totalItems) * 100;
+      
+      if (tidakStandarPercentage >= 50) {
+        status = 'Critical';
+        score += 50;
+      } else if (tidakStandarPercentage >= 25) {
+        if (status !== 'Critical') status = 'Warning';
+        score += 25;
+      } else if (tidakStandarPercentage > 0) {
+        if (status === 'Good') status = 'Warning';
+        score += 10;
+      }
+    }
+  }
+  
+  if (score >= 70 && status !== 'Critical') {
+    status = 'Replace Required';
+  }
+  
+  if (apar.operationalStatus === 'BACKUP' && status === 'Good') {
+    return 'Backup';
+  }
+  
+  return status;
+}
 
 /**
- * Helper: fetch dengan follow redirect (solusi utama CORS Apps Script)
- * Google Apps Script redirect GET ke URL final — fetch default handle ini dengan baik.
+ * Update semua status APAR dan sync BATCH ke Google Sheets (hanya 1x request)
  */
+async function updateAllAutoStatus() {
+  let changes = [];
+  
+  for (let i = 0; i < aparData.length; i++) {
+    const apar = aparData[i];
+    const newStatus = calculateAutoStatus(apar);
+    
+    if (apar.status !== newStatus) {
+      console.log(`📊 Status ${apar.id}: ${apar.status} → ${newStatus}`);
+      apar.status = newStatus;
+      changes.push({ ...apar }); 
+    }
+  }
+  
+  if (changes.length > 0) {
+    console.log(`🔄 Terdapat ${changes.length} perubahan status, sync batch ke server...`);
+    const success = await batchUpdateAparStatus(changes);
+    if (success) {
+      console.log('✅ Batch update status berhasil');
+    } else {
+      console.warn('⚠️ Batch update status gagal, reload data dari server');
+      await fetchFromGoogleSheets(); 
+    }
+  }
+  
+  return changes.length > 0;
+}
+
+/**
+ * Batch update multiple APAR ke Google Sheets (1 request saja)
+ */
+async function batchUpdateAparStatus(updatedApars) {
+  if (!updatedApars.length) return true;
+  
+  try {
+    const result = await sheetsGET({
+      action: 'batchUpdateStatus',
+      data: encodeURIComponent(JSON.stringify(updatedApars))
+    });
+    return result.success;
+  } catch (error) {
+    console.error('❌ Gagal batch update status:', error);
+    return false;
+  }
+}
+
+/**
+ * Batch update operational status multiple APAR
+ */
+async function batchUpdateOperationalStatus(updates) {
+  if (!updates.length) return true;
+  
+  try {
+    const result = await sheetsGET({
+      action: 'batchUpdateOperationalStatus',
+      data: encodeURIComponent(JSON.stringify(updates))
+    });
+    return result.success;
+  } catch (error) {
+    console.error('❌ Gagal batch update operational status:', error);
+    return false;
+  }
+}
+
+/**
+ * Update operational status untuk satu APAR
+ */
+async function updateAparOperationalStatus(aparId, newStatus) {
+  const apar = aparData.find(a => a.id === aparId);
+  if (!apar) return false;
+  
+  if (apar.operationalStatus === newStatus) return true;
+  
+  apar.operationalStatus = newStatus;
+  
+  const newAutoStatus = calculateAutoStatus(apar);
+  apar.status = newAutoStatus;
+  
+  const success = await pushAparToSheets(apar);
+  
+  if (success) {
+    showToast(`📦 ${aparId}: ${OPERATIONAL_STATUS[newStatus]?.label}`, 'success');
+    if (!currentInspectingApar && !editMode) {
+      renderPage(currentPage);
+    }
+    return true;
+  }
+  
+  return false;
+}
+
 async function sheetsGET(params) {
   const url = new URL(GOOGLE_SHEETS_CONFIG.appsScriptUrl);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
@@ -43,7 +212,15 @@ async function fetchFromGoogleSheets() {
     const result = await sheetsGET({ action: 'getAllApar' });
     if (result.success && result.data) {
       aparData = result.data;
+      aparData.forEach(apar => {
+        if (!apar.operationalStatus) {
+          apar.operationalStatus = 'ACTIVE';
+        }
+      });
+      await updateAllAutoStatusWithoutSync();
       console.log('✅ Data APAR:', aparData.length, 'item');
+      console.log('📊 Active:', aparData.filter(a => a.operationalStatus === 'ACTIVE').length);
+      console.log('📦 Backup:', aparData.filter(a => a.operationalStatus === 'BACKUP').length);
       return true;
     }
     console.warn('⚠️ Tidak ada data:', result.error || '');
@@ -55,12 +232,27 @@ async function fetchFromGoogleSheets() {
   }
 }
 
+/**
+ * Update status tanpa sync ke server (hanya di memory)
+ */
+async function updateAllAutoStatusWithoutSync() {
+  for (let i = 0; i < aparData.length; i++) {
+    const apar = aparData[i];
+    const newStatus = calculateAutoStatus(apar);
+    if (apar.status !== newStatus) {
+      console.log(`📊 Status ${apar.id}: ${apar.status} → ${newStatus} (memory only)`);
+      apar.status = newStatus;
+    }
+  }
+}
+
 async function fetchInspectionFromSheets() {
   try {
     const result = await sheetsGET({ action: 'getInspectionData' });
     if (result.success && result.data) {
       inspectionThisMonth = result.data.thisMonth || [];
-      inspectionDetails   = result.data.details   || {};
+      inspectionDetails   = result.data.details || {};
+      await updateAllAutoStatusWithoutSync();
       console.log('✅ Data inspeksi dimuat');
       return true;
     }
@@ -100,7 +292,17 @@ async function pushInspectionToSheets(aparId, standarCount, tidakStandarCount, n
       action: 'saveInspection',
       data: encodeURIComponent(JSON.stringify(payload))
     });
-    if (result.success) console.log('✅ Inspeksi', aparId, 'disimpan');
+    if (result.success) {
+      console.log('✅ Inspeksi', aparId, 'disimpan');
+      const apar = aparData.find(a => a.id === aparId);
+      if (apar) {
+        const newStatus = calculateAutoStatus(apar, inspectionDetails[aparId]);
+        if (apar.status !== newStatus) {
+          apar.status = newStatus;
+          await pushAparToSheets(apar);
+        }
+      }
+    }
     return result.success;
   } catch (error) {
     console.error('❌ Gagal simpan inspeksi:', error);
@@ -133,23 +335,7 @@ async function refreshDataFromSheets() {
   showToast('✅ Data berhasil diperbarui', 'success');
 }
 
-async function resetData() {
-  if (currentInspectingApar || editMode) {
-    showToast('⚠️ Tidak dapat reset saat sedang mengedit data.', 'warning');
-    return;
-  }
-  if (confirm('⚠️ PERINGATAN: Ini akan menghapus SEMUA data APAR dari Google Sheets.\n\nData tidak dapat dikembalikan. Lanjutkan?')) {
-    showToast('🔄 Menghapus semua data...', 'warning');
-    for (const apar of [...aparData]) {
-      await deleteAparFromSheets(apar.id);
-    }
-    aparData = [];
-    inspectionThisMonth = [];
-    inspectionDetails = {};
-    renderPage(currentPage);
-    showToast('🗑️ Semua data berhasil dihapus', 'danger');
-  }
-}
+// Fungsi resetData telah dihapus sesuai permintaan
 
 async function initializeData() {
   console.log('🔄 Inisialisasi data dari Google Sheets...');
@@ -180,7 +366,6 @@ if (document.readyState === 'loading') {
   initializeData();
 }
 
-// Auto-refresh setiap 60 detik
 setInterval(async () => {
   if (isDataLoaded && !currentInspectingApar && !editMode) {
     await fetchFromGoogleSheets();
