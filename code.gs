@@ -2,6 +2,17 @@ const SHEET_NAME = 'DATA';
 const INSPECTION_SHEET_NAME = 'INSPECTION';
 const SPREADSHEET_ID = '1IkAumjEeLSaXCsdbIVZYtpC0VHIgheBVwWWhhl7xoVg';
 
+// ── Helper: Build row map untuk O(1) lookup ──────────────────────
+function _buildRowMap(data) {
+  const map = {};
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0]) {
+      map[String(data[i][0])] = i + 1;  // 1-indexed row number
+    }
+  }
+  return map;
+}
+
 function makeResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
@@ -132,20 +143,12 @@ function doGet(e) {
       const expValue = expDate ? expDate : (apar.expRefill || '');
 
       const sd = sheet.getDataRange().getValues();
-      let rowIndex = -1;
+      const rowMap = _buildRowMap(sd);  // O(1) lookup helper
+      const rowIndex = rowMap[apar.id] || -1;
       let hasOpStatus = false;
-      
-      for (let i = 1; i < sd.length; i++) {
-        if (String(sd[i][0]) === apar.id) { 
-          rowIndex = i + 1; 
-          break; 
-        }
-      }
       
       // Cek apakah header memiliki kolom OperationalStatus
       if (sd[0] && sd[0].length > 7) {
-        hasOpStatus = true;
-      } else if (rowIndex > 0 && sd[rowIndex-1] && sd[rowIndex-1].length > 7) {
         hasOpStatus = true;
       }
 
@@ -278,11 +281,11 @@ function doGet(e) {
       const sheet = ss.getSheetByName(SHEET_NAME);
       if (sheet) {
         const sd = sheet.getDataRange().getValues();
-        for (let i = 1; i < sd.length; i++) {
-          if (String(sd[i][0]) === aparId) {
-            sheet.deleteRow(i + 1);
-            return makeResponse({ success: true, message: 'Deleted' });
-          }
+        const rowMap = _buildRowMap(sd);  // O(1) lookup
+        const rowIndex = rowMap[aparId];
+        if (rowIndex) {
+          sheet.deleteRow(rowIndex);
+          return makeResponse({ success: true, message: 'Deleted' });
         }
       }
       return makeResponse({ success: false, error: 'Not found' });

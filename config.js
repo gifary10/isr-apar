@@ -70,5 +70,5 @@ const REMINDER_CONFIG = {
 };
 
 const GOOGLE_SHEETS_CONFIG = {
-  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbwee4Soqpe3vGqNyP9ddn4bnFseG_I4xPapvdnU597Esd6EdKeAe-gB-zL3ejRHfcolBA/exec'
+  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbxWL0-hHQiSTMvGl3AW7KuQkJSm97kzDcKHkgD0Y7L48zX762gIwTN__018vqtAGEM53g/exec'
 };

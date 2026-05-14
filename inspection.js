@@ -356,7 +356,7 @@ async function submitSingleInspection(aparId) {
     if (data[item.id] === 'tidak_standar') tidakStandarCount++;
   });
   
-  showToast('🔄 Menyimpan inspeksi...', 'info');
+  showToast('Menyimpan inspeksi...', 'info');
   
   if (!inspectionThisMonth.includes(aparId)) {
     inspectionThisMonth.push(aparId);
@@ -408,7 +408,7 @@ async function submitSingleInspection(aparId) {
     showToast(`${aparId}: ${standarCount} Standar, ${tidakStandarCount} Tidak Standar. ${statusMessage}`, 
               tidakStandarCount === 0 ? 'success' : 'warning');
   } else {
-    showToast('❌ Gagal menyimpan inspeksi', 'danger');
+    showToast('Gagal menyimpan inspeksi', 'danger');
   }
   
   window.scrollTo({ top: 0, behavior: 'smooth' });

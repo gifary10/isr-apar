@@ -9,6 +9,11 @@ let aparData          = [];
 let inspectionThisMonth = [];
 let inspectionDetails = {};
 let isDataLoaded      = false;
+let _isFetchInProgress = false;  // Prevent race conditions
+
+// Request debouncing untuk mencegah multiple requests
+let _fetchRequestCache = new Map();  // cache pending requests
+const DEBOUNCE_REQUEST_MS = 1000;     // debounce 1 detik
 
 // ── Cache keys (localStorage) ────────────────────────────────
 const CACHE_KEYS = {
@@ -187,7 +192,7 @@ function _saveToLocalCache(key, tsKey, data) {
     localStorage.setItem(tsKey, Date.now().toString());
   } catch (e) {
     // Storage penuh atau private mode — abaikan saja
-    console.warn('⚠️ Tidak dapat menyimpan ke localStorage:', e.message);
+    console.warn('Tidak dapat menyimpan ke localStorage:', e.message);
   }
 }
 
@@ -198,8 +203,20 @@ function _loadFromLocalCache(key, tsKey) {
     if (age > CACHE_TTL_MS) return null;  // expired
 
     const raw  = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    
+    try {
+      return JSON.parse(raw);
+    } catch (parseErr) {
+      console.warn(`⚠️ Cache corrupted (${key}), removing...`);
+      try {
+        localStorage.removeItem(key);
+        localStorage.removeItem(tsKey);
+      } catch (_) {}
+      return null;
+    }
   } catch (e) {
+    console.warn('⚠️ localStorage error:', e.message);
     return null;
   }
 }
@@ -210,13 +227,61 @@ function _invalidateLocalCache() {
   } catch (_) {}
 }
 
-// ── Google Sheets network layer ───────────────────────────────
+// ── Google Sheets network layer dengan debouncing ─────────────
+// Timeout 20 detik untuk mencegah request hang
+const FETCH_TIMEOUT_MS = 20000;
+
+function _fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timeoutId));
+}
+
+// Debounce identical requests
+function _getDebouncedRequest(key) {
+  return _fetchRequestCache.get(key);
+}
+
+function _setCachedRequest(key, promise) {
+  _fetchRequestCache.set(key, promise);
+  // Clear cache after debounce period
+  setTimeout(() => {
+    _fetchRequestCache.delete(key);
+  }, DEBOUNCE_REQUEST_MS);
+  return promise;
+}
+
 async function sheetsGET(params) {
   const url = new URL(GOOGLE_SHEETS_CONFIG.appsScriptUrl);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
+  
+  // Create a unique key for this request
+  const requestKey = url.toString();
+  
+  // Check if we have a pending request for this
+  const cachedPromise = _getDebouncedRequest(requestKey);
+  if (cachedPromise) {
+    console.log('⏩ Request debounced (reusing pending request):', params.action);
+    return cachedPromise;
+  }
+  
+  // Create new request
+  const promise = _fetchWithTimeout(url.toString(), { method: 'GET', redirect: 'follow' })
+    .then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
+    .catch(error => {
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout - server tidak merespons dalam 20 detik');
+      }
+      throw error;
+    });
+  
+  // Cache this promise to deduplicate requests
+  return _setCachedRequest(requestKey, promise);
 }
 
 // ── Fetch APAR (cache-first) ──────────────────────────────────
@@ -349,7 +414,7 @@ async function pushAparToSheets(apar) {
     return result.success;
   } catch (error) {
     console.error('❌ Gagal simpan APAR:', error);
-    showToast('❌ Gagal menyimpan ke server.', 'danger');
+    showToast('Gagal menyimpan ke server.', 'danger');
     return false;
   }
 }
@@ -387,7 +452,7 @@ async function pushInspectionToSheets(aparId, standarCount, tidakStandarCount, n
     return result.success;
   } catch (error) {
     console.error('❌ Gagal simpan inspeksi:', error);
-    showToast('❌ Gagal menyimpan inspeksi ke server.', 'danger');
+    showToast('Gagal menyimpan inspeksi ke server.', 'danger');
     return false;
   }
 }
@@ -464,9 +529,9 @@ if (document.readyState === 'loading') {
   initializeData();
 }
 
-// ── Auto-refresh: hanya fetch jika TTL sudah habis ────────────
+// ── Auto-refresh: hanya fetch jika TTL sudah habis, prevent race condition ────────────
 setInterval(async () => {
-  if (!isDataLoaded || currentInspectingApar || editMode) return;
+  if (!isDataLoaded || currentInspectingApar || editMode || _isFetchInProgress) return;
 
   const aparAge  = Date.now() - parseInt(localStorage.getItem(CACHE_KEYS.aparTs)  || '0', 10);
   const inspAge  = Date.now() - parseInt(localStorage.getItem(CACHE_KEYS.inspectionTs) || '0', 10);
@@ -479,10 +544,17 @@ setInterval(async () => {
     return;
   }
 
-  const fetches = [];
-  if (needApar) fetches.push(fetchFromGoogleSheets({ forceNetwork: true }));
-  if (needInsp) fetches.push(fetchInspectionFromSheets({ forceNetwork: true }));
+  _isFetchInProgress = true;
+  try {
+    const fetches = [];
+    if (needApar) fetches.push(fetchFromGoogleSheets({ forceNetwork: true }));
+    if (needInsp) fetches.push(fetchInspectionFromSheets({ forceNetwork: true }));
 
-  await Promise.all(fetches);
-  renderPage(currentPage);
+    await Promise.all(fetches);
+    if (!currentInspectingApar && !editMode) renderPage(currentPage);
+  } catch (error) {
+    console.error('❌ Auto-refresh error:', error);
+  } finally {
+    _isFetchInProgress = false;
+  }
 }, REFRESH_INTERVAL_MS);

@@ -161,7 +161,8 @@ h6 { font-size: .9rem; letter-spacing: .01em; }
 .main-content {
   padding: calc(var(--header-h) + 16px) 16px calc(var(--nav-h) + var(--safe-bottom) + 16px);
   min-height: 100vh;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.2s ease;
+  will-change: opacity;
 }
 
 /* ── Bottom Navigation ── */
@@ -432,9 +433,10 @@ h6 { font-size: .9rem; letter-spacing: .01em; }
   justify-content: center;
   box-shadow: 0 8px 25px rgba(251,82,1,.5);
   cursor: pointer;
-  z-index: 800;
+  z-index: 950;
   transition: all .2s ease;
   -webkit-tap-highlight-color: transparent;
+  will-change: transform, box-shadow;
 }
 
 .fab-master:hover {

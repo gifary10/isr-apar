@@ -392,10 +392,6 @@ function renderMaster() {
       'Database kosong',
       'Tambahkan APAR pertama Anda'
     ) : ''}
-    
-    <button class="fab-master" onclick="openAddForm()" id="fabMasterBtn">
-      <i class="bi bi-plus-lg"></i>
-    </button>
   `;
 }
 
@@ -791,7 +787,7 @@ async function saveApar(event, aparId) {
     
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) {
-      submitBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>✅ Berhasil!';
+      submitBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Berhasil!';
       submitBtn.classList.add('btn-success');
       submitBtn.classList.remove('btn-primary');
       submitBtn.disabled = true;
@@ -799,17 +795,15 @@ async function saveApar(event, aparId) {
       setTimeout(() => {
         const app = document.getElementById('app');
         app.innerHTML = renderMaster();
-        const fabBtn = document.getElementById('fabMasterBtn');
-        if (fabBtn) fabBtn.onclick = () => openAddForm();
       }, 500);
     } else {
       const app = document.getElementById('app');
       app.innerHTML = renderMaster();
     }
     
-    showToast(`✅ ${data.id} berhasil ${aparId ? 'diupdate' : 'ditambahkan'} dengan status ${newStatus}`, 'success');
+    showToast(`${data.id} berhasil ${aparId ? 'diupdate' : 'ditambahkan'} dengan status ${newStatus}`, 'success');
   } else {
-    showToast('❌ Gagal menyimpan ke Google Sheets', 'danger');
+    showToast('Gagal menyimpan ke Google Sheets', 'danger');
     await fetchFromGoogleSheets();
   }
   
@@ -849,9 +843,9 @@ async function deleteApar(aparId) {
       const app = document.getElementById('app');
       app.innerHTML = renderMaster();
       
-      showToast(`🗑️ ${aparId} berhasil dihapus`, 'danger');
+      showToast(`${aparId} berhasil dihapus`, 'danger');
     } else {
-      showToast('❌ Gagal menghapus data', 'danger');
+      showToast('Gagal menghapus data', 'danger');
       const app = document.getElementById('app');
       app.innerHTML = renderMaster();
     }

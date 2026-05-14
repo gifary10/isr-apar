@@ -6,10 +6,99 @@ let editMode = null;
 // Data form yang belum disimpan (untuk peringatan)
 let hasUnsavedFormChanges = false;
 
+// Animation cleanup tracking
+let _pendingAnimations = [];
+
+function _clearPendingAnimations() {
+  _pendingAnimations.forEach(id => clearTimeout(id));
+  _pendingAnimations = [];
+}
+
+// Utility: Debounce function
+function _debounce(func, delay) {
+  let timeoutId;
+  return function(...args) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func(...args), delay);
+  };
+}
+
+// Swipe state dan debounce
+let touchStartX = 0;
+let touchEndX = 0;
+let _lastSwipeTime = 0;
+const SWIPE_DEBOUNCE_MS = 300;
+
+function handleSwipe() {
+  const now = Date.now();
+  if (now - _lastSwipeTime < SWIPE_DEBOUNCE_MS) return;
+  
+  const swipeThreshold = 100;
+  const diff = touchEndX - touchStartX;
+  
+  if (Math.abs(diff) < swipeThreshold) return;
+  
+  // Swipe kanan -> back
+  if (diff > 0 && (currentInspectingApar || editMode)) {
+    _lastSwipeTime = now;
+    goBack();
+  }
+}
+
+// Event handlers (untuk removal nanti)
+const _eventHandlers = {
+  keydown: null,
+  touchstart: null,
+  touchend: null
+};
+
+function _setupEventListeners() {
+  // Remove existing listeners if any
+  _removeEventListeners();
+  
+  // Keydown handler
+  _eventHandlers.keydown = function(e) {
+    if (e.key === 'Escape') {
+      if (currentInspectingApar || editMode) {
+        goBack();
+      }
+    }
+  };
+  
+  // Touch handlers
+  _eventHandlers.touchstart = function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+  };
+  
+  _eventHandlers.touchend = function(e) {
+    touchEndX = e.changedTouches[0].screenX;
+    handleSwipe();
+  };
+  
+  // Add listeners
+  document.addEventListener('keydown', _eventHandlers.keydown);
+  document.addEventListener('touchstart', _eventHandlers.touchstart, { passive: true });
+  document.addEventListener('touchend', _eventHandlers.touchend, { passive: true });
+}
+
+function _removeEventListeners() {
+  if (_eventHandlers.keydown) {
+    document.removeEventListener('keydown', _eventHandlers.keydown);
+  }
+  if (_eventHandlers.touchstart) {
+    document.removeEventListener('touchstart', _eventHandlers.touchstart);
+  }
+  if (_eventHandlers.touchend) {
+    document.removeEventListener('touchend', _eventHandlers.touchend);
+  }
+}
+
 /**
  * Navigasi ke halaman tertentu
  */
 function navigateTo(page) {
+  _clearPendingAnimations();
+  
   // Cek apakah user sedang mengedit dan ada perubahan
   if (currentInspectingApar && hasUnsavedInspectionChanges(currentInspectingApar)) {
     if (!confirm('⚠️ Anda memiliki checklist yang belum disimpan. Yakin ingin meninggalkan halaman?')) {
@@ -45,9 +134,10 @@ function navigateTo(page) {
     const icon = targetNav.querySelector('i');
     if (icon) {
       icon.style.transform = 'scale(1.2)';
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         icon.style.transform = '';
       }, 200);
+      _pendingAnimations.push(timeoutId);
     }
   }
   
@@ -68,7 +158,7 @@ function navigateTo(page) {
     
     renderPage(page);
     
-    requestAnimationFrame(() => {
+    const rafId = requestAnimationFrame(() => {
       app.style.opacity = '1';
       app.style.transform = 'translateY(0)';
     });
@@ -143,6 +233,12 @@ function renderPage(page) {
   const app = document.getElementById('app');
   if (!app) return;
   
+  // Tampilkan/sembunyikan FAB button berdasarkan halaman
+  const fabBtn = document.getElementById('fabMasterBtn');
+  if (fabBtn) {
+    fabBtn.style.display = (page === 'master') ? 'flex' : 'none';
+  }
+  
   let content = '';
   
   switch(page) {
@@ -171,37 +267,9 @@ function renderPage(page) {
 /**
  * Handle navigasi dengan keyboard (aksesibilitas)
  */
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    if (currentInspectingApar || editMode) {
-      goBack();
-    }
-  }
-});
-
-/**
- * Handle swipe gesture untuk navigasi mobile
- */
-let touchStartX = 0;
-let touchEndX = 0;
-
-document.addEventListener('touchstart', function(e) {
-  touchStartX = e.changedTouches[0].screenX;
-}, { passive: true });
-
-document.addEventListener('touchend', function(e) {
-  touchEndX = e.changedTouches[0].screenX;
-  handleSwipe();
-}, { passive: true });
-
-function handleSwipe() {
-  const swipeThreshold = 100;
-  const diff = touchEndX - touchStartX;
-  
-  if (Math.abs(diff) < swipeThreshold) return;
-  
-  // Swipe kanan -> back
-  if (diff > 0 && (currentInspectingApar || editMode)) {
-    goBack();
-  }
+// Setup listeners ketika DOM ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _setupEventListeners);
+} else {
+  _setupEventListeners();
 }
