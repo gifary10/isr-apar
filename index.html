@@ -1,77 +1,287 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#000c1f">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>ISR APAR</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-
-  <!-- Loading Overlay -->
-  <div id="loadingOverlay">
-    <div class="app-logo-overlay">
-      <img src="logo.webp" alt="ISR APAR" onerror="this.style.display='none'">
-    </div>
-    <div class="spinner-border" role="status">
-      <span class="visually-hidden">Loading...</span>
-    </div>
-    <p>Memuat data dari Google Sheets...</p>
-  </div>
-
-  <!-- Header -->
-  <header class="app-header">
-    <button class="back-btn d-none" id="backBtn" onclick="goBack()">
-      <i class="bi bi-arrow-left"></i>
-    </button>
-    <img src="logo.webp" alt="Logo" class="header-logo" onerror="this.style.display='none'">
-    <span class="header-title" id="pageTitle">ISR APAR</span>
-  </header>
-
-  <!-- Main Content -->
-  <div id="app" class="main-content"></div>
-
-  <!-- Bottom Navigation -->
-  <nav class="bottom-nav" id="bottomNav">
-    <div class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
-      <i class="bi bi-grid-fill"></i>
-      <span>Dashboard</span>
-    </div>
-    <div class="nav-item" data-page="master" onclick="navigateTo('master')">
-      <i class="bi bi-database"></i>
-      <span>Master</span>
-    </div>
-    <div class="nav-item" data-page="inspection" onclick="navigateTo('inspection')">
-      <i class="bi bi-clipboard-check"></i>
-      <span>Inspeksi</span>
-    </div>
-    <div class="nav-item" data-page="monitoring" onclick="navigateTo('monitoring')">
-      <i class="bi bi-graph-up"></i>
-      <span>Monitor</span>
-    </div>
-    <div class="nav-item" data-page="reminder" onclick="navigateTo('reminder')">
-      <i class="bi bi-bell"></i>
-      <span>Reminder</span>
-    </div>
-  </nav>
-
-  <!-- Toast Container -->
-  <div class="toast-container position-fixed top-0 end-0 p-3"></div>
-
-  <!-- JavaScript Files -->
-  <script src="config.js"></script>
-  <script src="cache.js"></script>
-  <script src="navigation.js"></script>
-  <script src="ui-components.js"></script>
-  <script src="inspection.js"></script>
-  
-  <!-- Bootstrap JS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-</body>
+<!DOCTYPE html>
+
+<html lang="id">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+  <meta name="theme-color" content="#000c1f">
+
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+
+  <title>ISR APAR</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- PWA Icons and Meta Tags -->
+  <link rel="icon" type="image/webp" href="logo.webp">
+  <link rel="apple-touch-icon" href="logo.webp">
+  <meta name="apple-mobile-web-app-title" content="ISR APAR">
+
+</head>
+
+<body>
+
+
+
+  <!-- Loading Overlay -->
+
+  <div id="loadingOverlay">
+
+    <div class="app-logo-overlay">
+
+      <img src="logo.webp" alt="ISR APAR" onerror="this.style.display='none'">
+
+    </div>
+
+    <div class="spinner-border" role="status">
+
+      <span class="visually-hidden">Loading...</span>
+
+    </div>
+
+    <p>Memuat data dari Google Sheets...</p>
+
+  </div>
+
+
+
+  <!-- Header -->
+
+  <header class="app-header">
+
+    <button class="back-btn d-none" id="backBtn" onclick="goBack()">
+
+      <i class="bi bi-arrow-left"></i>
+
+    </button>
+
+    <img src="logo.webp" alt="Logo" class="header-logo" onerror="this.style.display='none'">
+
+    <span class="header-title" id="pageTitle">ISR APAR</span>
+
+  </header>
+
+
+
+  <!-- Main Content -->
+
+  <div id="app" class="main-content"></div>
+
+
+
+  <!-- Bottom Navigation -->
+
+  <nav class="bottom-nav" id="bottomNav">
+
+    <div class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+
+      <i class="bi bi-grid-fill"></i>
+
+      <span>Dashboard</span>
+
+    </div>
+
+    <div class="nav-item" data-page="master" onclick="navigateTo('master')">
+
+      <i class="bi bi-database"></i>
+
+      <span>Master</span>
+
+    </div>
+
+    <div class="nav-item" data-page="inspection" onclick="navigateTo('inspection')">
+
+      <i class="bi bi-clipboard-check"></i>
+
+      <span>Inspeksi</span>
+
+    </div>
+
+    <div class="nav-item" data-page="monitoring" onclick="navigateTo('monitoring')">
+
+      <i class="bi bi-graph-up"></i>
+
+      <span>Monitor</span>
+
+    </div>
+
+    <div class="nav-item" data-page="reminder" onclick="navigateTo('reminder')">
+
+      <i class="bi bi-bell"></i>
+
+      <span>Reminder</span>
+
+    </div>
+
+  </nav>
+
+
+
+  <!-- Toast Container -->
+
+  <div class="toast-container position-fixed top-0 end-0 p-3"></div>
+
+
+
+  <!-- JavaScript Files -->
+
+  <script src="config.js"></script>
+
+  <script src="cache.js"></script>
+
+  <script src="navigation.js"></script>
+
+  <script src="ui-components.js"></script>
+
+  <script src="inspection.js"></script>
+
+  
+
+  <!-- Bootstrap JS -->
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- PWA Service Worker Registration & Updates -->
+  <script>
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+          .then((registration) => {
+            console.log('[PWA] Service Worker registered:', registration);
+            
+            // Check for updates periodically
+            setInterval(() => {
+              registration.update();
+            }, 60000); // Check every 60 seconds
+
+            // Listen for updates
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'activated') {
+                  // Show update available notification
+                  showUpdateNotification(registration);
+                }
+              });
+            });
+          })
+          .catch((error) => {
+            console.error('[PWA] Service Worker registration failed:', error);
+          });
+      });
+
+      // Handle controller change (app update)
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        console.log('[PWA] New Service Worker activated');
+      });
+    }
+
+    // Show update notification
+    function showUpdateNotification(registration) {
+      const container = document.querySelector('.toast-container');
+      if (!container) return;
+
+      const updateToast = document.createElement('div');
+      updateToast.className = 'toast show';
+      updateToast.setAttribute('role', 'alert');
+      updateToast.innerHTML = `
+        <div class="toast-header bg-info text-white">
+          <strong class="me-auto">
+            <i class="bi bi-arrow-repeat"></i> Update Tersedia
+          </strong>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">
+          <p>Versi baru aplikasi tersedia.</p>
+          <button type="button" class="btn btn-sm btn-primary" onclick="location.reload()">
+            Perbarui Sekarang
+          </button>
+        </div>
+      `;
+      container.appendChild(updateToast);
+
+      // Auto dismiss after 10 seconds
+      setTimeout(() => {
+        updateToast.remove();
+      }, 10000);
+    }
+
+    // Detect online/offline status
+    window.addEventListener('online', () => {
+      console.log('[PWA] Back online');
+      const container = document.querySelector('.toast-container');
+      if (container) {
+        const onlineToast = document.createElement('div');
+        onlineToast.className = 'toast show';
+        onlineToast.innerHTML = `
+          <div class="toast-header bg-success text-white">
+            <strong class="me-auto">
+              <i class="bi bi-cloud-check"></i> Online
+            </strong>
+          </div>
+          <div class="toast-body">
+            Koneksi pulih. Data disinkronkan.
+          </div>
+        `;
+        container.appendChild(onlineToast);
+        setTimeout(() => onlineToast.remove(), 3000);
+      }
+    });
+
+    window.addEventListener('offline', () => {
+      console.log('[PWA] Went offline');
+      const container = document.querySelector('.toast-container');
+      if (container) {
+        const offlineToast = document.createElement('div');
+        offlineToast.className = 'toast show';
+        offlineToast.innerHTML = `
+          <div class="toast-header bg-warning">
+            <strong class="me-auto">
+              <i class="bi bi-cloud-slash"></i> Offline
+            </strong>
+          </div>
+          <div class="toast-body">
+            Anda offline. Beberapa fitur mungkin terbatas.
+          </div>
+        `;
+        container.appendChild(offlineToast);
+        setTimeout(() => offlineToast.remove(), 5000);
+      }
+    });
+
+    // Install prompt for "Add to Home Screen"
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      console.log('[PWA] Install prompt available');
+      
+      // You can show an "Install" button if desired
+      // For now, it will show the browser default prompt
+    });
+
+    window.addEventListener('appinstalled', () => {
+      console.log('[PWA] App installed successfully');
+      deferredPrompt = null;
+    });
+  </script>
+
+</body>
+
 </html>
