@@ -1,6 +1,3 @@
-// Service Worker untuk ISR APAR PWA
-// Strategi: Network-first untuk API calls, Cache-first untuk static assets
-
 const CACHE_NAME = 'isr-apar-v1';
 const CACHE_TIMEOUT_MS = 20000;  // 20 detik timeout untuk fetch
 const URLS_TO_CACHE = [
@@ -13,7 +10,7 @@ const URLS_TO_CACHE = [
   '/ui-components.js',
   '/inspection.js',
   '/manifest.json',
-  '/logo.webp',
+  '/isr.png',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
